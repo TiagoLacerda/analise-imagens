@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run source/main.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/source/main.py",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "console": "integratedTerminal",
+            "args": [
+                "${input:imagePath}"
+            ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "imagePath",
+            "type": "promptString",
+            "description": "Path to the input image",
+            "default": "${workspaceFolder}/assets/images/"
+        }
+    ]
+}
