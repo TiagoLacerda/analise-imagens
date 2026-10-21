@@ -1,6 +1,5 @@
 import argparse
 import kornia.color as kornia_colors
-import kornia.filters as kornia_filters
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -32,6 +31,27 @@ def rgb_to_lab(image: torch.Tensor) -> torch.Tensor:
     lab = kornia_colors.rgb_to_lab(rgb)
     
     return lab.squeeze(0).permute(1, 2, 0)
+
+
+def rgb_to_hsl(image: torch.Tensor) -> torch.Tensor:
+    """
+    Converts a (H, W, 3) RGB tensor to an (H, W, 3) HSL tensor.
+    """
+    rgb = image.permute(2, 0, 1).unsqueeze(0).float() / 255.0
+    hls = kornia_colors.rgb_to_hls(rgb)
+    hsl = hls[:, [0, 2, 1], ...]
+
+    return hsl.squeeze(0).permute(1, 2, 0)
+
+
+def rgb_to_xyz(image: torch.Tensor) -> torch.Tensor:
+    """
+    Converts a (H, W, 3) RGB tensor to an (H, W, 3) XYZ tensor.
+    """
+    rgb = image.permute(2, 0, 1).unsqueeze(0).float() / 255.0
+    xyz = kornia_colors.rgb_to_xyz(rgb)
+
+    return xyz.squeeze(0).permute(1, 2, 0)
 
 
 def main():
@@ -69,37 +89,42 @@ def main():
     plt.tight_layout()
     plt.show(block=True)
 
-    # 2. RGB -> CIELAB
+    # 2. RGB -> CIELAB, HSL and XYZ
 
-    tensor = rgb_to_lab(tensor)
+    lab = rgb_to_lab(tensor)
+    hsl = rgb_to_hsl(tensor)
+    xyz = rgb_to_xyz(tensor)
 
-    tensor = tensor[..., 0]
+    channels = (
+        (lab[..., 0], "CIELAB L*", 0, 100),
+        (hsl[..., 2], "HSL l", 0, 1),
+        (xyz[..., 1], "XYZ Y", 0, 1),
+    )
 
-    tensor = (tensor * 2.55).clamp(0, 255)
+    # Images
 
-    # Image
+    fig, axes = plt.subplots(3, 1, figsize=(6, 10))
 
-    fig, ax = plt.subplots()
-
-    ax.imshow(tensor.cpu().numpy(), cmap="gray")
-
-    ax.axis("off")
+    for i, (channel, title, lo, hi) in enumerate(channels):
+        axes[i].imshow(channel.cpu().numpy(), cmap="gray", vmin=lo, vmax=hi)
+        axes[i].set_title(title)
+        axes[i].axis("off")
 
     # Histograms
 
     fig, axes = plt.subplots(3, 1, figsize=(8, 6))
 
-    channels = ("L*", "a*", "b*")
-    colors = ("gray", "red", "blue")
-
-    for i in range(3):
-        axes[i].hist(tensor[..., i].ravel().cpu().numpy(), bins=256, color=colors[i])
-        axes[i].set_title(channels[i])
+    for i, (channel, title, lo, hi) in enumerate(channels):
+        axes[i].hist(channel.cpu().numpy().ravel(), bins=256, color="gray")
+        axes[i].set_title(title)
+        axes[i].set_xlim(lo, hi)
 
     plt.tight_layout()
     plt.show(block=True)
 
     # 3. Histogram analysis
+
+    tensor = (xyz[..., 1] * 255).clamp(0, 255)
 
     lo = 0
     hi = 215
@@ -111,11 +136,11 @@ def main():
     fig, axes = plt.subplots(2, 1, figsize=(6, 10))
 
     axes[0].imshow(tensor.cpu().numpy(), cmap="gray", vmin=0, vmax=255)
-    axes[0].set_title("Original")
+    axes[0].set_title("Y")
     axes[0].axis("off")
 
     axes[1].imshow(tensor_normalized.cpu().numpy(), cmap="gray", vmin=0, vmax=255)
-    axes[1].set_title("Normalizada")
+    axes[1].set_title("Y Normalizado")
     axes[1].axis("off")
 
     plt.tight_layout()
@@ -129,7 +154,7 @@ def main():
         bins=256,
         range=(0, 255),
         alpha=0.4,
-        label="Original",
+        label="Y",
     )
 
     ax.hist(
@@ -138,7 +163,7 @@ def main():
         range=(0, 255),
         histtype="step",
         linewidth=1.5,
-        label="Normalizado",
+        label="Y Normalizado",
     )
 
     ax.set_title("Distribuição da Luminância")
@@ -158,14 +183,14 @@ def main():
     spectrum_normalized = torch.abs(torch.fft.fftshift(torch.fft.fft2(tensor_normalized.float())))
     magnitude_normalized = torch.log1p(spectrum_normalized)
 
-    fig, axes = plt.subplots(2, 1, figsize=(6, 10))
+    fig, axes = plt.subplots(1, 2, figsize=(6, 10))
 
     axes[0].imshow(magnitude.cpu().numpy(), cmap="gray")
-    axes[0].set_title("Transformada de Fourier 2D — Original")
+    axes[0].set_title("Transformada de Fourier 2D — Y")
     axes[0].axis("off")
 
     axes[1].imshow(magnitude_normalized.cpu().numpy(), cmap="gray")
-    axes[1].set_title("Transformada de Fourier 2D — Normalizada")
+    axes[1].set_title("Transformada de Fourier 2D — Y Normalizado")
     axes[1].axis("off")
 
     plt.tight_layout()

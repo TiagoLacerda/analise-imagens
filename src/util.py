@@ -1,8 +1,6 @@
 import math
 import torch
 
-from source.plot import *
-
 def sinusoidal_image(
     direction: float,
     frequency: float,

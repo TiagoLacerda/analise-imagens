@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Run source/main.py",
+            "name": "Run src/main.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/source/main.py",
+            "program": "${workspaceFolder}/src/main.py",
             "cwd": "${workspaceFolder}",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "console": "integratedTerminal",
