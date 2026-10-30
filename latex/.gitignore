@@ -1,0 +1,54 @@
+# LaTeX auxiliary files
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.fmt
+*.fot
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.synctex(busy)
+*.toc
+*.vrb
+
+# Generated PDFs (optional)
+# *.pdf
+
+# latexmk
+*.xdv
+*.dvi
+
+# Glossaries / nomenclature
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.ist
+
+# Index files
+*.idx
+*.ilg
+*.ind
+
+# TikZ externalization
+*.dpth
+*.md5
+
+# Build directories
+_build/
+build/
+dist/
+
+# minted
+_minted*
+*.pyg

@@ -1,0 +1,24 @@
+\newlength{\cs}
+\settowidth{\cs}{$-2$}\setlength{\cs}{1.4\cs}
+\newlength{\lift}
+\setlength{\lift}{-.5\cs}\addtolength{\lift}{.75ex}  % centers digits vertically
+\setlength{\tabcolsep}{0pt}
+\renewcommand{\arraystretch}{0}
+
+\[
+\begin{array}{c}
+G_x =
+\begin{tabular}{|@{}c@{}|@{}c@{}|@{}c@{}|}\hline
+\rule[\lift]{0pt}{\cs}\makebox[\cs]{$-1$} & \makebox[\cs]{$0$} & \makebox[\cs]{$1$} \\ \hline
+\rule[\lift]{0pt}{\cs}\makebox[\cs]{$-2$} & \makebox[\cs]{$0$} & \makebox[\cs]{$2$} \\ \hline
+\rule[\lift]{0pt}{\cs}\makebox[\cs]{$-1$} & \makebox[\cs]{$0$} & \makebox[\cs]{$1$} \\ \hline
+\end{tabular}
+\\[2ex]
+G_y =
+\begin{tabular}{|@{}c@{}|@{}c@{}|@{}c@{}|}\hline
+\rule[\lift]{0pt}{\cs}\makebox[\cs]{$-1$} & \makebox[\cs]{$-2$} & \makebox[\cs]{$-1$} \\ \hline
+\rule[\lift]{0pt}{\cs}\makebox[\cs]{$0$} & \makebox[\cs]{$0$} & \makebox[\cs]{$0$} \\ \hline
+\rule[\lift]{0pt}{\cs}\makebox[\cs]{$1$} & \makebox[\cs]{$2$} & \makebox[\cs]{$1$} \\ \hline
+\end{tabular}
+\end{array}
+\]

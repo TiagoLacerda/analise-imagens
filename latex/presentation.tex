@@ -1,23 +1,21 @@
 \documentclass{beamer}
 
 \usepackage{amsmath}
+\usepackage{graphicx}
 \usepackage[portuguese]{babel} 
 % \usepackage[sfdefault,light]{roboto} 
 \usepackage[sfdefault, light]{inter} %% 'sfdefault' makes Inter the default sans-serif font
 \usepackage[T1]{fontenc}
 
-% \usefonttheme[onlymath]{serif}
+\usefonttheme[onlymath]{serif}
 % \usefonttheme{serif}
 \definecolor{primary}{HTML}{E12885}
-% \definecolor{surface}{HTML}{0F0F0F}
-% \definecolor{onsurface}{HTML}{F0F0F0}
 
 \setbeamercolor{structure}{fg=primary}
-% \setbeamercolor{background canvas}{bg=surface}
-% \setbeamercolor{normal text}{fg=onsurface}
 
 \setbeamertemplate{itemize items}[circle]
 \setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
 
 \title{Diferença de Gaussianas}
 \author{Tiago Maia de Lacerda Brasil}
@@ -42,7 +40,98 @@
 \frame{\titlepage}
 
 \begin{frame}
+    \frametitle{\textit{Gaussian blur}}
 
+    \begin{columns}
+        \column{0.5\textwidth}
+        \centering
+        $f(x)=\frac{1}{\sigma \sqrt{2 \pi}} e^{-\frac{1}{2}{\left(\frac{x-\mu}{\sigma}\right)}^2}$
+
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/gaussian_2.png}
+    \end{columns}
 \end{frame}
+
+\begin{frame}
+    \frametitle{\textit{Gaussian blur}}
+
+    \begin{columns}
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/chicken_gaussian_9_2.png}
+        $r=9, \sigma=2$
+        
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/gaussian_2.png}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{\textit{Gaussian blur}}
+
+    \begin{columns}
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/chicken_gaussian_9_3.png}
+        $r=9, \sigma=3$
+        
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/gaussian_3.png}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{\textit{Gaussian blur}}
+
+    \begin{columns}
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/chicken_dog_9_2_3.png}
+        $r=9, (\sigma=2) - (\sigma=3)$
+        
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/dog.png}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{\textit{Sobel operator}}
+
+    \begin{columns}
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/chicken_sobel.png}
+        
+        \column{0.5\textwidth}
+        \centering
+        % \begin{tabular}{| p{0.25cm} | p{0.25cm} | p{0.25cm} |}
+        %     \hline
+        %     \rule{0pt}{0.25cm} a & b & c \\[0.25cm]
+        %     \hline
+        %     \rule{0pt}{0.25cm} a & b & c \\[0.25cm]
+        %     \hline
+        %     \rule{0pt}{0.25cm} a & b & c \\[0.25cm]
+        % \end{tabular}
+        \input{sobel.tex}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{\textit{Canny edge detector}}
+
+    \begin{columns}
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/chicken_canny.png}
+        
+        \column{0.5\textwidth}
+        \centering
+    \end{columns}
+\end{frame}
+
 
 \end{document}
