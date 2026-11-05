@@ -21,7 +21,7 @@ def parse_args() -> tuple[str, list[float], str]:
     parser.add_argument(
         "-o",
         "--output",
-        default="gaussian.png",
+        default=None,
         help="Caminho para salvar a figura",
     )
 
@@ -29,8 +29,10 @@ def parse_args() -> tuple[str, list[float], str]:
 
     print(args)
 
+    path = args.output or f"{args.figure}.png"
+
     if args.figure != "gaussian":
-        return args.figure, [], args.output
+        return args.figure, [], path
 
     if len(args.sigmas) > 2:
         parser.error("informe no máximo dois valores de sigma")
@@ -43,11 +45,57 @@ def parse_args() -> tuple[str, list[float], str]:
     if any(not isfinite(sigma) or sigma <= 0 for sigma in sigmas):
         parser.error("sigma deve ser um número finito maior que zero")
 
-    return args.figure, sigmas, args.output
+    return args.figure, sigmas, path
 
 
 def main():
     figure, sigmas, path = parse_args()
+
+    if figure == "hystheresis":
+        x = np.linspace(0, 10, 1000)
+        response = (
+            0.95 * np.exp(-((x - 2.8) ** 2) / 0.18)
+            + 0.55 * np.exp(-((x - 4.3) ** 2) / 0.5)
+            + 0.42 * np.exp(-((x - 7.4) ** 2) / 0.3)
+        )
+
+        low = 0.3
+        high = 0.7
+        strong = response >= high
+        weak = (response >= low) & ~strong
+        connected = weak & (x >= 3.4) & (x <= 5.2)
+
+        fig, axes = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
+        fig.patch.set_facecolor("white")
+
+        for ax in axes:
+            ax.set_facecolor("white")
+            ax.grid(True, linewidth=0.5, color="lightgray")
+            ax.set_ylim(bottom=0, top=1.05)
+
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+
+        axes[0].plot(x, response, color="black", label="Resposta do gradiente")
+        axes[0].axhline(low, color="orange", linestyle="--", label="Limiar baixo")
+        axes[0].axhline(high, color="red", linestyle="--", label="Limiar alto")
+        axes[0].fill_between(x, 0, response, where=strong, color="red", alpha=0.25)
+        axes[0].fill_between(x, 0, response, where=weak, color="orange", alpha=0.25)
+        axes[0].set_ylabel("Magnitude", fontfamily="serif")
+        axes[0].set_title("Canny: limiares de histerese", fontfamily="serif")
+        axes[0].legend()
+
+        axes[1].plot(x, strong, color="red", label="Borda forte")
+        axes[1].plot(x, connected, color="blue", label="Borda fraca conectada")
+        axes[1].plot(x, weak & ~connected, color="gray", label="Borda fraca descartada")
+        axes[1].set_xlabel("Posição", fontfamily="serif")
+        axes[1].set_ylabel("Classificação", fontfamily="serif")
+        axes[1].set_yticks((0, 1), ("Descartado", "Aceito"))
+        axes[1].legend()
+
+        plt.tight_layout()
+        fig.savefig(path)
+        return
 
     if figure != "gaussian":
         return

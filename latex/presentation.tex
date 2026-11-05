@@ -36,7 +36,6 @@
 % - Histogramas
 % - 
 
-
 \frame{\titlepage}
 
 \begin{frame}
@@ -108,14 +107,6 @@
         
         \column{0.5\textwidth}
         \centering
-        % \begin{tabular}{| p{0.25cm} | p{0.25cm} | p{0.25cm} |}
-        %     \hline
-        %     \rule{0pt}{0.25cm} a & b & c \\[0.25cm]
-        %     \hline
-        %     \rule{0pt}{0.25cm} a & b & c \\[0.25cm]
-        %     \hline
-        %     \rule{0pt}{0.25cm} a & b & c \\[0.25cm]
-        % \end{tabular}
         \input{sobel.tex}
     \end{columns}
 \end{frame}
@@ -130,7 +121,48 @@
         
         \column{0.5\textwidth}
         \centering
+        \includegraphics[width=\linewidth]{assets/images/hystheresis.png}        
     \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Espaços de cores}
+
+    \begin{columns}
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/chicken.jpg}
+        
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/chicken_histograms_rgb.png}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Espaços de cores}
+
+    \begin{columns}
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/chicken_lab_hsl_xyz.png}
+        
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/images/chicken_histograms_lab_hsl_xyz.png}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Balanceamento de contraste}
+    % TODO: Missing image comparison
+    \includegraphics[width=\linewidth]{assets/images/chicken_contrast_balancing.png}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Análise espectral}
+
+    \includegraphics[width=\linewidth]{assets/images/chicken_spectrum.png}
 \end{frame}
 
 
