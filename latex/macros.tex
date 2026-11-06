@@ -1,0 +1,25 @@
+% Image shown in the slides. Change it to switch every image at once: its files
+% must be in assets/images/, moved there from the output/ folder generated with
+% python3 src/assets.py PATH.
+\providecommand{\imagename}{lena-forsen}
+
+% \asset{sobel} is the path to assets/images/<image>_sobel.png.
+% \assetsource is the input image, whatever its extension.
+\newcommand{\asset}[1]{assets/images/\imagename_#1.png}
+\newcommand{\assetsource}{assets/images/\imagename}
+
+% Footline: textbook reference on the left, frame number on the right.
+% Call \bookref{text} inside a frame to show the reference on that frame only.
+\newcommand{\bookreftext}{}
+\newcommand{\bookrefframe}{0}
+\newcommand{\bookref}[1]{%
+  \gdef\bookreftext{#1}%
+  \xdef\bookrefframe{\arabic{framenumber}}}
+
+\setbeamertemplate{page number in head/foot}[totalframenumber]
+\setbeamertemplate{footline}{%
+  \usebeamercolor[fg]{page number in head/foot}%
+  \usebeamerfont{page number in head/foot}%
+  \strut\ifnum\value{framenumber}=\bookrefframe\relax\kern1em\bookreftext\fi
+  \hfill
+  \usebeamertemplate*{page number in head/foot}\kern1em\vskip1.4pt}

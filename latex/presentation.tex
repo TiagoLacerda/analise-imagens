@@ -1,22 +1,19 @@
 \documentclass{beamer}
 
-\usepackage{amsmath}
-\usepackage{graphicx}
-\usepackage[portuguese]{babel} 
-% \usepackage[sfdefault,light]{roboto} 
-\usepackage[sfdefault, light]{inter} %% 'sfdefault' makes Inter the default sans-serif font
-\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
 
-\usefonttheme[onlymath]{serif}
-% \usefonttheme{serif}
+% Theme
+\usefonttheme{serif}
+
 \definecolor{primary}{HTML}{E12885}
-
 \setbeamercolor{structure}{fg=primary}
 
 \setbeamertemplate{itemize items}[circle]
 \setbeamertemplate{navigation symbols}{}
-\setbeamertemplate{footline}[frame number]
 
+\input{macros.tex}
+
+% Title page
 \title{Diferença de Gaussianas}
 \author{Tiago Maia de Lacerda Brasil}
 \institute{PPGC - IC/UFF}
@@ -36,106 +33,130 @@
 % - Histogramas
 % - 
 
+
+
+% Image
+% Image blurred at sigma = 2
+% Image blurred at sigma = 3
+% DoG of Y channel
+% Sobel of Y channel
+% Canny of Y channel
+% Histograms of RGB
+% Histograms of luminance for CIELAB, HSL and XYZ
+
 \frame{\titlepage}
 
 \begin{frame}
     \frametitle{\textit{Gaussian blur}}
 
     \begin{columns}
-        \column{0.5\textwidth}
+        \column{0.4\textwidth}
         \centering
         $f(x)=\frac{1}{\sigma \sqrt{2 \pi}} e^{-\frac{1}{2}{\left(\frac{x-\mu}{\sigma}\right)}^2}$
 
-        \column{0.5\textwidth}
+        \column{0.6\textwidth}
         \centering
         \includegraphics[width=\linewidth]{assets/images/gaussian_2.png}
     \end{columns}
+
+    \bookref{Computação Gráfica [v.2], p.169}
 \end{frame}
 
 \begin{frame}
     \frametitle{\textit{Gaussian blur}}
 
     \begin{columns}
-        \column{0.5\textwidth}
+        \column{0.4\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{assets/images/chicken_gaussian_9_2.png}
-        $r=9, \sigma=2$
+        \includegraphics[width=\linewidth]{\asset{blurred_2}}
+        $\sigma=2$
         
-        \column{0.5\textwidth}
+        \column{0.6\textwidth}
         \centering
         \includegraphics[width=\linewidth]{assets/images/gaussian_2.png}
     \end{columns}
+
+    \bookref{Computação Gráfica [v.2], p.169}
 \end{frame}
 
 \begin{frame}
     \frametitle{\textit{Gaussian blur}}
 
     \begin{columns}
-        \column{0.5\textwidth}
+        \column{0.4\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{assets/images/chicken_gaussian_9_3.png}
-        $r=9, \sigma=3$
+        \includegraphics[width=\linewidth]{\asset{blurred_3}}
+        $\sigma=3$
         
-        \column{0.5\textwidth}
+        \column{0.6\textwidth}
         \centering
         \includegraphics[width=\linewidth]{assets/images/gaussian_3.png}
     \end{columns}
+
+    \bookref{Computação Gráfica [v.2], p.169}
 \end{frame}
 
 \begin{frame}
     \frametitle{\textit{Gaussian blur}}
 
     \begin{columns}
-        \column{0.5\textwidth}
+        \column{0.4\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{assets/images/chicken_dog_9_2_3.png}
-        $r=9, (\sigma=2) - (\sigma=3)$
+        \includegraphics[width=\linewidth]{\asset{dog_9_2_3}}
+        $(\sigma=2) - (\sigma=3)$
         
-        \column{0.5\textwidth}
+        \column{0.6\textwidth}
         \centering
         \includegraphics[width=\linewidth]{assets/images/dog.png}
     \end{columns}
+
+    \bookref{Computação Gráfica [v.2], p.169}
 \end{frame}
 
 \begin{frame}
     \frametitle{\textit{Sobel operator}}
 
     \begin{columns}
-        \column{0.5\textwidth}
+        \column{0.4\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{assets/images/chicken_sobel.png}
+        \includegraphics[width=\linewidth]{\asset{sobel}}
+        $I=\sqrt{G_x^2+G_y^2}$
         
-        \column{0.5\textwidth}
+        \column{0.6\textwidth}
         \centering
         \input{sobel.tex}
     \end{columns}
+
+    \bookref{Computação Gráfica [v.2], p.179}
 \end{frame}
 
 \begin{frame}
     \frametitle{\textit{Canny edge detector}}
 
     \begin{columns}
-        \column{0.5\textwidth}
+        \column{0.4\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{assets/images/chicken_canny.png}
+        \includegraphics[width=\linewidth]{\asset{canny}}
         
-        \column{0.5\textwidth}
+        \column{0.6\textwidth}
         \centering
         \includegraphics[width=\linewidth]{assets/images/hystheresis.png}        
     \end{columns}
+
+    \bookref{Computação Gráfica [v.2], p.187}
 \end{frame}
 
 \begin{frame}
     \frametitle{Espaços de cores}
 
     \begin{columns}
-        \column{0.5\textwidth}
+        \column{0.4\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{assets/images/chicken.jpg}
+        \includegraphics[width=\linewidth]{\assetsource}
         
-        \column{0.5\textwidth}
+        \column{0.6\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{assets/images/chicken_histograms_rgb.png}
+        \includegraphics[width=\linewidth]{\asset{histograms_rgb}}
     \end{columns}
 \end{frame}
 
@@ -143,26 +164,28 @@
     \frametitle{Espaços de cores}
 
     \begin{columns}
-        \column{0.5\textwidth}
+        \column{0.4\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{assets/images/chicken_lab_hsl_xyz.png}
+        \includegraphics[width=\linewidth]{\asset{luminance}}
         
-        \column{0.5\textwidth}
+        \column{0.6\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{assets/images/chicken_histograms_lab_hsl_xyz.png}
+        \includegraphics[width=\linewidth]{\asset{histograms_luminance}}
     \end{columns}
 \end{frame}
 
 \begin{frame}
     \frametitle{Balanceamento de contraste}
     % TODO: Missing image comparison
-    \includegraphics[width=\linewidth]{assets/images/chicken_contrast_balancing.png}
+    \centering
+    \includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{\asset{contrast_balancing_histograms}}
 \end{frame}
 
 \begin{frame}
     \frametitle{Análise espectral}
 
-    \includegraphics[width=\linewidth]{assets/images/chicken_spectrum.png}
+    \centering
+    \includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{\asset{spectrum}}
 \end{frame}
 
 

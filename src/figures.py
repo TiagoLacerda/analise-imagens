@@ -1,3 +1,13 @@
+"""
+Generate the plots used in the presentation.
+
+Usage:
+    python3 src/figures.py hystheresis [-o OUTPUT]
+    python3 src/figures.py gaussian [sigma1] [sigma2] [-o OUTPUT]
+
+The figure is saved to OUTPUT, or to <figure>.png when -o is omitted.
+"""
+
 import argparse
 from math import isfinite
 
@@ -5,139 +15,166 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def parse_args() -> tuple[str, list[float], str]:
+def style_axes(ax: plt.Axes) -> None:
+    """Apply the style shared by all figures: white background, light grid, no spines."""
+    ax.set_facecolor("white")
+    ax.grid(True, linewidth=0.5, color="lightgray")
+
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+
+def gaussian(x: np.ndarray, sigma: float) -> np.ndarray:
+    """Evaluate the zero-mean normal distribution with standard deviation sigma at x."""
+    return np.exp(-(x ** 2) / (2 * sigma ** 2)) / (sigma * np.sqrt(2 * np.pi))
+
+
+def plot_hysteresis(path: str) -> None:
     """
-    Parse command line arguments.
+    Plot a synthetic gradient response and how Canny's hysteresis classifies it.
 
-    Returns the figure name, sigmas, and path to save the figure.
+    CLI:
+        python3 src/figures.py hystheresis
+        python3 src/figures.py hystheresis -o latex/assets/images/hystheresis.png
     """
-    parser = argparse.ArgumentParser("figures")
-    parser.add_argument("figure", help="Figura a ser gerada", type=str)
-    parser.add_argument(
-        "sigmas",
-        nargs="*",
-        help="Um ou dois valores de sigma para a gaussiana",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        default=None,
-        help="Caminho para salvar a figura",
+    x = np.linspace(0, 10, 1000)
+    response = (
+        0.95 * np.exp(-((x - 2.8) ** 2) / 0.18)
+        + 0.55 * np.exp(-((x - 4.3) ** 2) / 0.5)
+        + 0.42 * np.exp(-((x - 7.4) ** 2) / 0.3)
     )
 
-    args = parser.parse_args()
+    low = 0.3
+    high = 0.7
+    strong = response >= high
+    weak = (response >= low) & ~strong
+    connected = weak & (x >= 3.4) & (x <= 5.2)
 
-    print(args)
+    fig, (response_ax, class_ax) = plt.subplots(
+        2, 1, figsize=(8, 6), sharex=True, facecolor="white"
+    )
 
-    path = args.output or f"{args.figure}.png"
+    for ax in (response_ax, class_ax):
+        style_axes(ax)
+        ax.set_ylim(bottom=0, top=1.05)
 
-    if args.figure != "gaussian":
-        return args.figure, [], path
+    response_ax.plot(x, response, color="black", label="Resposta do gradiente")
+    response_ax.axhline(low, color="orange", linestyle="--", label="Limiar baixo")
+    response_ax.axhline(high, color="red", linestyle="--", label="Limiar alto")
+    response_ax.fill_between(x, 0, response, where=strong, color="red", alpha=0.25)
+    response_ax.fill_between(x, 0, response, where=weak, color="orange", alpha=0.25)
+    response_ax.set_ylabel("Magnitude", fontfamily="serif")
+    response_ax.set_title("Canny: limiares de histerese", fontfamily="serif")
+    response_ax.legend()
 
-    if len(args.sigmas) > 2:
-        parser.error("informe no máximo dois valores de sigma")
+    class_ax.plot(x, strong, color="red", label="Borda forte")
+    class_ax.plot(x, connected, color="blue", label="Borda fraca conectada")
+    class_ax.plot(x, weak & ~connected, color="gray", label="Borda fraca descartada")
+    class_ax.set_xlabel("Posição", fontfamily="serif")
+    class_ax.set_ylabel("Classificação", fontfamily="serif")
+    class_ax.set_yticks((0, 1), ("Descartado", "Aceito"))
+    class_ax.legend()
 
-    try:
-        sigmas = [float(sigma) for sigma in args.sigmas] or [1.0]
-    except ValueError:
-        parser.error("sigma deve ser um número")
-
-    if any(not isfinite(sigma) or sigma <= 0 for sigma in sigmas):
-        parser.error("sigma deve ser um número finito maior que zero")
-
-    return args.figure, sigmas, path
+    plt.tight_layout()
+    fig.savefig(path)
 
 
-def main():
-    figure, sigmas, path = parse_args()
+def plot_gaussian(sigmas: list[float], path: str) -> None:
+    """
+    Plot one or two gaussians. With two, also plot their difference (DoG).
 
-    if figure == "hystheresis":
-        x = np.linspace(0, 10, 1000)
-        response = (
-            0.95 * np.exp(-((x - 2.8) ** 2) / 0.18)
-            + 0.55 * np.exp(-((x - 4.3) ** 2) / 0.5)
-            + 0.42 * np.exp(-((x - 7.4) ** 2) / 0.3)
-        )
-
-        low = 0.3
-        high = 0.7
-        strong = response >= high
-        weak = (response >= low) & ~strong
-        connected = weak & (x >= 3.4) & (x <= 5.2)
-
-        fig, axes = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
-        fig.patch.set_facecolor("white")
-
-        for ax in axes:
-            ax.set_facecolor("white")
-            ax.grid(True, linewidth=0.5, color="lightgray")
-            ax.set_ylim(bottom=0, top=1.05)
-
-            for spine in ax.spines.values():
-                spine.set_visible(False)
-
-        axes[0].plot(x, response, color="black", label="Resposta do gradiente")
-        axes[0].axhline(low, color="orange", linestyle="--", label="Limiar baixo")
-        axes[0].axhline(high, color="red", linestyle="--", label="Limiar alto")
-        axes[0].fill_between(x, 0, response, where=strong, color="red", alpha=0.25)
-        axes[0].fill_between(x, 0, response, where=weak, color="orange", alpha=0.25)
-        axes[0].set_ylabel("Magnitude", fontfamily="serif")
-        axes[0].set_title("Canny: limiares de histerese", fontfamily="serif")
-        axes[0].legend()
-
-        axes[1].plot(x, strong, color="red", label="Borda forte")
-        axes[1].plot(x, connected, color="blue", label="Borda fraca conectada")
-        axes[1].plot(x, weak & ~connected, color="gray", label="Borda fraca descartada")
-        axes[1].set_xlabel("Posição", fontfamily="serif")
-        axes[1].set_ylabel("Classificação", fontfamily="serif")
-        axes[1].set_yticks((0, 1), ("Descartado", "Aceito"))
-        axes[1].legend()
-
-        plt.tight_layout()
-        fig.savefig(path)
-        return
-
-    if figure != "gaussian":
-        return
-
+    CLI:
+        python3 src/figures.py gaussian                    # sigma = 1
+        python3 src/figures.py gaussian 2 -o gaussian_2.png
+        python3 src/figures.py gaussian 2 3 -o dog_2_3.png
+    """
     x = np.linspace(-10, 10, 10000)
 
     fig, ax = plt.subplots(facecolor="white")
-    ax.set_facecolor("white")
+    style_axes(ax)
 
-    colors = ("blue", "blue")
-    curves = []
+    for sigma in sigmas:
+        ax.plot(x, gaussian(x, sigma), color="blue", label=f"σ = {sigma}")
 
-    for sigma, color in zip(sigmas, colors):
-        y = np.exp(-(x ** 2) / (2 * sigma ** 2)) / (sigma * np.sqrt(2 * np.pi))
-        curves.append((sigma, y))
-        ax.plot(x, y, color=color, label=f"σ = {sigma}")
-
-    if len(curves) == 2:
-        smaller_sigma, smaller_curve = min(curves, key=lambda curve: curve[0])
-        larger_sigma, larger_curve = max(curves, key=lambda curve: curve[0])
+    if len(sigmas) == 2:
+        smaller, larger = sorted(sigmas)
         ax.plot(
             x,
-            smaller_curve - larger_curve,
+            gaussian(x, smaller) - gaussian(x, larger),
             color="purple",
             linestyle="--",
-            label=f"σ = {smaller_sigma} − σ = {larger_sigma}",
+            label=f"σ = {smaller} − σ = {larger}",
         )
 
     ax.set_xlabel("x", fontfamily="serif")
     ax.set_ylabel("f(x)", fontfamily="serif")
     ax.set_ylim(top=0.25, bottom=-0.049)
     ax.set_xlim(left=-10, right=10)
-    ax.grid(True, linewidth=0.5, color="lightgray")
     ax.axhline(0, color="black", linewidth=0.5, linestyle="--")
     ax.axvline(0, color="black", linewidth=0.5, linestyle="--")
     ax.legend()
 
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-
     plt.tight_layout()
     fig.savefig(path)
+
+
+def sigma_value(value: str) -> float:
+    """Convert a command line argument to a valid sigma."""
+    try:
+        sigma = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("sigma deve ser um número")
+
+    if not isfinite(sigma) or sigma <= 0:
+        raise argparse.ArgumentTypeError(
+            "sigma deve ser um número finito maior que zero"
+        )
+
+    return sigma
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments."""
+    output_parser = argparse.ArgumentParser(add_help=False)
+    output_parser.add_argument(
+        "-o",
+        "--output",
+        default=None,
+        help="Caminho para salvar a figura",
+    )
+
+    parser = argparse.ArgumentParser("figures")
+    subparsers = parser.add_subparsers(
+        dest="figure", required=True, help="Figura a ser gerada"
+    )
+
+    subparsers.add_parser("hystheresis", parents=[output_parser])
+
+    gaussian_parser = subparsers.add_parser("gaussian", parents=[output_parser])
+    gaussian_parser.add_argument(
+        "sigmas",
+        nargs="*",
+        type=sigma_value,
+        default=[1.0],
+        help="Um ou dois valores de sigma para a gaussiana",
+    )
+
+    args = parser.parse_args()
+
+    if args.figure == "gaussian" and len(args.sigmas) > 2:
+        gaussian_parser.error("informe no máximo dois valores de sigma")
+
+    return args
+
+
+def main() -> None:
+    args = parse_args()
+    path = args.output or f"{args.figure}.png"
+
+    if args.figure == "hystheresis":
+        plot_hysteresis(path)
+    else:
+        plot_gaussian(args.sigmas, path)
 
 
 if __name__ == "__main__":

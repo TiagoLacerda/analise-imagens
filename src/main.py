@@ -1,3 +1,15 @@
+"""
+Analyse an image step by step: source image, color spaces, histogram and frequency spectrum.
+
+Usage:
+    python3 src/main.py PATH
+
+Each step opens its figures in a window. Close them to move on to the next step.
+
+Example:
+    python3 src/main.py assets/images/chicken.jpg
+"""
+
 import argparse
 import kornia.color as kornia_colors
 import matplotlib.pyplot as plt
@@ -11,16 +23,12 @@ def parse_args() -> str:
     """
     Parse command line arguments.
 
-    Returns a string containing a path to an image.
+    Returns the path to the image.
     """
-    parser = argparse.ArgumentParser("foo")
-    parser.add_argument("path", help="Caminho de um arquivo de imagem", type=str)
+    parser = argparse.ArgumentParser("main")
+    parser.add_argument("path", help="Caminho de um arquivo de imagem")
 
-    args = parser.parse_args()
-
-    print(args)
-
-    return args.path
+    return parser.parse_args().path
 
 
 def rgb_to_lab(image: torch.Tensor) -> torch.Tensor:
@@ -103,12 +111,20 @@ def main():
 
     # Images
 
-    fig, axes = plt.subplots(3, 1, figsize=(6, 10))
+    fig, axes = plt.subplots(2, 2, figsize=(8, 8))
 
-    for i, (channel, title, lo, hi) in enumerate(channels):
-        axes[i].imshow(channel.cpu().numpy(), cmap="gray", vmin=lo, vmax=hi)
-        axes[i].set_title(title)
-        axes[i].axis("off")
+    for i, (ax, (channel, title, lo, hi)) in enumerate(zip(axes.flat, channels)):
+        ax.imshow(channel.cpu().numpy(), cmap="gray", vmin=lo, vmax=hi)
+        ax.axis("off")
+
+        if i < 2:
+            ax.set_title(title)
+        else:
+            ax.set_title(title, y=0, pad=-6, verticalalignment="top")
+
+    axes[1, 1].axis("off")
+
+    fig.tight_layout()
 
     # Histograms
 
