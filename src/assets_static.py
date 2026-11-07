@@ -1,18 +1,25 @@
 """
-Generate the plots used in the presentation.
+Save the images used in the presentation that do not depend on an input image.
 
 Usage:
-    python3 src/figures.py hystheresis [-o OUTPUT]
-    python3 src/figures.py gaussian [sigma1] [sigma2] [-o OUTPUT]
+    python3 src/assets_static.py
 
-The figure is saved to OUTPUT, or to <figure>.png when -o is omitted.
+The images are saved to the output/static/ folder in the project root:
+
+    gaussian_2.png    Gaussian curve, sigma = 2
+    gaussian_3.png    Gaussian curve, sigma = 3
+    dog.png           Both gaussian curves and their difference
+    hystheresis.png   Canny's hysteresis thresholds
 """
 
-import argparse
-from math import isfinite
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output" / "static"
+
+SIGMA_COLORS = {2: "red", 3: "blue"}
 
 
 def style_axes(ax: plt.Axes) -> None:
@@ -29,14 +36,8 @@ def gaussian(x: np.ndarray, sigma: float) -> np.ndarray:
     return np.exp(-(x ** 2) / (2 * sigma ** 2)) / (sigma * np.sqrt(2 * np.pi))
 
 
-def plot_hysteresis(path: str) -> None:
-    """
-    Plot a synthetic gradient response and how Canny's hysteresis classifies it.
-
-    CLI:
-        python3 src/figures.py hystheresis
-        python3 src/figures.py hystheresis -o latex/assets/images/hystheresis.png
-    """
+def plot_hysteresis(path: Path) -> None:
+    """Plot a synthetic gradient response and how Canny's hysteresis classifies it."""
     x = np.linspace(0, 10, 1000)
     response = (
         0.95 * np.exp(-((x - 2.8) ** 2) / 0.18)
@@ -77,24 +78,18 @@ def plot_hysteresis(path: str) -> None:
 
     plt.tight_layout()
     fig.savefig(path)
+    plt.close(fig)
 
 
-def plot_gaussian(sigmas: list[float], path: str) -> None:
-    """
-    Plot one or two gaussians. With two, also plot their difference (DoG).
-
-    CLI:
-        python3 src/figures.py gaussian                    # sigma = 1
-        python3 src/figures.py gaussian 2 -o gaussian_2.png
-        python3 src/figures.py gaussian 2 3 -o dog_2_3.png
-    """
+def plot_gaussian(sigmas: tuple[int, ...], path: Path) -> None:
+    """Plot one or two gaussians. With two, also plot their difference (DoG)."""
     x = np.linspace(-10, 10, 10000)
 
     fig, ax = plt.subplots(facecolor="white")
     style_axes(ax)
 
     for sigma in sigmas:
-        ax.plot(x, gaussian(x, sigma), color="blue", label=f"σ = {sigma}")
+        ax.plot(x, gaussian(x, sigma), color=SIGMA_COLORS[sigma], label=f"σ = {sigma}")
 
     if len(sigmas) == 2:
         smaller, larger = sorted(sigmas)
@@ -116,65 +111,16 @@ def plot_gaussian(sigmas: list[float], path: str) -> None:
 
     plt.tight_layout()
     fig.savefig(path)
-
-
-def sigma_value(value: str) -> float:
-    """Convert a command line argument to a valid sigma."""
-    try:
-        sigma = float(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError("sigma deve ser um número")
-
-    if not isfinite(sigma) or sigma <= 0:
-        raise argparse.ArgumentTypeError(
-            "sigma deve ser um número finito maior que zero"
-        )
-
-    return sigma
-
-
-def parse_args() -> argparse.Namespace:
-    """Parse command line arguments."""
-    output_parser = argparse.ArgumentParser(add_help=False)
-    output_parser.add_argument(
-        "-o",
-        "--output",
-        default=None,
-        help="Caminho para salvar a figura",
-    )
-
-    parser = argparse.ArgumentParser("figures")
-    subparsers = parser.add_subparsers(
-        dest="figure", required=True, help="Figura a ser gerada"
-    )
-
-    subparsers.add_parser("hystheresis", parents=[output_parser])
-
-    gaussian_parser = subparsers.add_parser("gaussian", parents=[output_parser])
-    gaussian_parser.add_argument(
-        "sigmas",
-        nargs="*",
-        type=sigma_value,
-        default=[1.0],
-        help="Um ou dois valores de sigma para a gaussiana",
-    )
-
-    args = parser.parse_args()
-
-    if args.figure == "gaussian" and len(args.sigmas) > 2:
-        gaussian_parser.error("informe no máximo dois valores de sigma")
-
-    return args
+    plt.close(fig)
 
 
 def main() -> None:
-    args = parse_args()
-    path = args.output or f"{args.figure}.png"
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    if args.figure == "hystheresis":
-        plot_hysteresis(path)
-    else:
-        plot_gaussian(args.sigmas, path)
+    plot_gaussian((2,), OUTPUT_DIR / "gaussian_2.png")
+    plot_gaussian((3,), OUTPUT_DIR / "gaussian_3.png")
+    plot_gaussian((2, 3), OUTPUT_DIR / "dog.png")
+    plot_hysteresis(OUTPUT_DIR / "hystheresis.png")
 
 
 if __name__ == "__main__":

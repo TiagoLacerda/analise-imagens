@@ -16,6 +16,12 @@ meant to be displayed over a white background. For an input image
     <name>_blurred_3.png             Gaussian blur, sigma = 3
     <name>_dog_9_2_3.png             DoG of the XYZ Y channel, radius = 9, sigmas = 2 and 3
     <name>_sobel.png                 Sobel filter of the XYZ Y channel
+    <name>_sobel_x.png               Sobel gradient Gx of the XYZ Y channel, zero is mid-gray
+    <name>_sobel_y.png               Sobel gradient Gy of the XYZ Y channel, zero is mid-gray
+    <name>_sobel_xy.png              Absolute Gx in the red channel, absolute Gy in the green channel
+    <name>_eigenvector_major.png     Major structure tensor eigenvector, x in the red channel,
+                                     y in the green channel, zero is 0.5
+    <name>_eigenvector_minor.png     Minor structure tensor eigenvector, same channels
     <name>_canny.png                 Canny edges of the XYZ Y channel
     <name>_luminance_lab.png         CIELAB L* channel
     <name>_luminance_hsl.png         HSL l channel
@@ -35,20 +41,23 @@ import shutil
 from pathlib import Path
 
 import kornia.enhance as kornia_enhance
+import kornia.filters as kornia_filters
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
 from PIL import Image
 
-from figures import style_axes
-from filter import apply_filter
-from main import rgb_to_hsl, rgb_to_lab, rgb_to_xyz
+from assets_static import style_axes
+from util import apply_filter, rgb_to_hsl, rgb_to_lab, rgb_to_xyz
 
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
 
 BLUR_RADIUS = 9
 BLUR_SIGMAS = (2, 3)
+
+STRUCTURE_TENSOR_SIGMA = 2
+COHERENCE_EPSILON = 1e-3
 
 
 def parse_args() -> str:
@@ -102,6 +111,95 @@ def save_edges(path: str, output_dir: Path, name: str) -> None:
             output_dir / f"{name}_{filter_name}.png",
             edges.cpu().numpy(),
             cmap="gray",
+        )
+
+
+def sobel_gradients(luminance: torch.Tensor) -> torch.Tensor:
+    """Returns a (2, H, W) tensor with the signed Sobel gradients Gx and Gy of a luminance channel."""
+    gradients = kornia_filters.spatial_gradient(luminance.unsqueeze(0).unsqueeze(0))
+
+    return gradients.squeeze(0).squeeze(0)
+
+
+def save_sobel_gradients(luminance: torch.Tensor, output_dir: Path, name: str) -> None:
+    """Save the Sobel gradients of a luminance channel, on a shared scale."""
+    gradients = sobel_gradients(luminance)
+    gx, gy = gradients / gradients.abs().max()
+
+    # Signed gradients: zero is mid-gray, negative is darker and positive is lighter
+    for axis, gradient in (("x", gx), ("y", gy)):
+        plt.imsave(
+            output_dir / f"{name}_sobel_{axis}.png",
+            gradient.cpu().numpy(),
+            cmap="gray",
+            vmin=-1,
+            vmax=1,
+        )
+
+    plt.imsave(
+        output_dir / f"{name}_sobel_xy.png",
+        torch.stack((gx.abs(), gy.abs(), torch.zeros_like(gx)), dim=-1).cpu().numpy(),
+    )
+
+
+def gaussian_blur(tensor: torch.Tensor, sigma: float) -> torch.Tensor:
+    """Returns a (C, H, W) tensor blurred with a gaussian of the given sigma."""
+    kernel_size = 2 * BLUR_RADIUS + 1
+    blurred = kornia_filters.gaussian_blur2d(
+        tensor.unsqueeze(0),
+        (kernel_size, kernel_size),
+        (sigma, sigma),
+    )
+
+    return blurred.squeeze(0)
+
+
+def structure_tensor(luminance: torch.Tensor) -> torch.Tensor:
+    """Returns a (3, H, W) tensor with the smoothed structure tensor components E, F and G."""
+    gx, gy = sobel_gradients(luminance)
+    tensor = torch.stack((gx * gx, gx * gy, gy * gy))
+
+    return gaussian_blur(tensor, STRUCTURE_TENSOR_SIGMA)
+
+
+def eigenvectors(e: torch.Tensor, f: torch.Tensor, g: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """Returns the (2, H, W) unit major and minor eigenvectors of a structure tensor."""
+    # Dividing by the trace makes the result independent of brightness, and the
+    # difference of the eigenvalues becomes the coherence: (l1 - l2) / (l1 + l2)
+    trace = (e + g).clamp(min=torch.finfo(e.dtype).tiny)
+    e, f, g = e / trace, f / trace, g / trace
+
+    coherence = torch.sqrt((e - g) ** 2 + 4 * f ** 2)
+    major_eigenvalue = 0.5 * (e + g + coherence)
+
+    # Both are eigenvectors of the major eigenvalue, but each one collapses to zero
+    # on some axis-aligned edges. The longer one is always usable.
+    a = torch.stack((f, major_eigenvalue - e))
+    b = torch.stack((major_eigenvalue - g, f))
+    major = torch.where((a * a).sum(0) > (b * b).sum(0), a, b)
+
+    # Isotropic regions have no orientation, and are left as zero vectors
+    v1 = torch.where(
+        coherence > COHERENCE_EPSILON,
+        major * torch.rsqrt((major * major).sum(0)),
+        torch.zeros_like(major),
+    )
+    v2 = torch.stack((v1[1], -v1[0]))
+
+    return v1, v2
+
+
+def save_eigenvectors(luminance: torch.Tensor, output_dir: Path, name: str) -> None:
+    """Save the major and minor eigenvectors, with x as the red channel and y as the green channel."""
+    v1, v2 = eigenvectors(*structure_tensor(luminance))
+
+    for label, vector in (("major", v1), ("minor", v2)):
+        # Signed values: zero is 0.5
+        red, green = 0.5 + 0.5 * vector
+
+        plt.imsave(
+            output_dir / f"{name}_eigenvector_{label}.png",
+            torch.stack((red, green, torch.zeros_like(red)), dim=-1).cpu().numpy(),
         )
 
 
@@ -254,11 +352,16 @@ def main():
         output_dir / f"{name}_histograms_luminance.png",
     )
 
-    # 4. Histogram analysis
+    # 4. Edge analysis
+
+    save_sobel_gradients(xyz[..., 1], output_dir, name)
+    save_eigenvectors(xyz[..., 1], output_dir, name)
+
+    # 5. Histogram analysis
 
     save_contrast_balancing(xyz[..., 1], output_dir, name)
 
-    # 5. Frequency analysis
+    # 6. Frequency analysis
 
     save_spectrum((xyz[..., 1] * 255).clamp(0, 255), output_dir / f"{name}_spectrum.png")
 
