@@ -19,6 +19,10 @@ For an input image <name>.<extension>:
     <name>_sobel_x.png               Sobel gradient Gx of the XYZ Y channel, zero is mid-gray
     <name>_sobel_y.png               Sobel gradient Gy of the XYZ Y channel, zero is mid-gray
     <name>_sobel_xy.png              Absolute Gx in the red channel, absolute Gy in the green channel
+    <name>_structure_tensor.png      Structure tensor before smoothing, sqrt(E) in the red channel,
+                                     sqrt(G) in the green channel, sqrt(|F|) in the blue channel
+    <name>_structure_tensor_smoothed.png
+                                     The same, after the gaussian blur, sigma = 2
     <name>_eigenvector_major.png     Major structure tensor eigenvector, x in the red channel,
                                      y in the green channel, zero is 0.5
     <name>_eigenvector_minor.png     Minor structure tensor eigenvector, same channels
@@ -51,6 +55,12 @@ For an input image <name>.<extension>:
                                      Histograms of the XYZ Y channel, before and after
                                      histogram equalization
     <name>_spectrum.png              Fourier transform of the XYZ Y channel
+    <name>_xdog_dark.png             Final XDoG result, same parameters, of the XYZ Y channel at
+                                     half brightness
+    <name>_xdog_lab.png              The same, of the CIELAB L* channel scaled to [0, 1]
+    <name>_xdog_hsl.png              The same, of the HSL l channel
+    <name>_contrast_balancing_xdog.png
+                                     The same, of the XYZ Y channel after histogram equalization
 """
 
 import argparse
@@ -188,12 +198,26 @@ def gaussian_blur(tensor: torch.Tensor, sigma: float) -> torch.Tensor:
     return blurred.squeeze(0)
 
 
-def structure_tensor(luminance: torch.Tensor) -> torch.Tensor:
-    """Returns a (3, H, W) tensor with the smoothed structure tensor components E, F and G."""
+def structure_tensor(luminance: torch.Tensor, smoothed: bool = True) -> torch.Tensor:
+    """Returns a (3, H, W) tensor with the structure tensor components E, F and G."""
     gx, gy = sobel_gradients(luminance)
     tensor = torch.stack((gx * gx, gx * gy, gy * gy))
 
-    return gaussian_blur(tensor, STRUCTURE_TENSOR_SIGMA)
+    return gaussian_blur(tensor, STRUCTURE_TENSOR_SIGMA) if smoothed else tensor
+
+
+def save_structure_tensor(luminance: torch.Tensor, output_dir: Path, name: str) -> None:
+    """Save the structure tensor before and after smoothing, as (E, G, |F|) colors."""
+    for suffix, smoothed in (("", False), ("_smoothed", True)):
+        e, f, g = structure_tensor(luminance, smoothed)
+
+        # The square roots bring the components back to gradient magnitudes, so the
+        # unsmoothed tensor reads like the Sobel image. Each image uses its own scale,
+        # since the blur lowers the peaks.
+        color = torch.stack((e, g, f.abs()), dim=-1).sqrt()
+        color = color / color.max()
+
+        plt.imsave(output_dir / f"{name}_structure_tensor{suffix}.png", color.cpu().numpy())
 
 
 def eigenvectors(e: torch.Tensor, f: torch.Tensor, g: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -495,9 +519,9 @@ def save_flow_blur(luminance: torch.Tensor, output_dir: Path, name: str) -> None
         )
 
 
-def save_fdog(luminance: torch.Tensor, output_dir: Path, name: str) -> None:
+def xdog(luminance: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
-    Save the steps of the flow-based XDoG of a luminance channel: the DoG across the edges,
+    Returns the steps of the flow-based XDoG of a luminance channel: the DoG across the edges,
     that response blurred along the edges, and the thresholded result.
     """
     v1, v2 = eigenvectors(*structure_tensor(luminance))
@@ -520,15 +544,42 @@ def save_fdog(luminance: torch.Tensor, output_dir: Path, name: str) -> None:
         1 + torch.tanh(XDOG_PHI * (smoothed - XDOG_EPSILON)),
     )
 
+    return dog, smoothed, thresholded
+
+
+def save_gray(image: torch.Tensor, path: Path) -> None:
+    """Save an image as grayscale, clipped to [0, 1]."""
+    plt.imsave(path, image.clamp(0, 1).cpu().numpy(), cmap="gray", vmin=0, vmax=1)
+
+
+def save_fdog(luminance: torch.Tensor, output_dir: Path, name: str) -> None:
+    """Save the steps of the flow-based XDoG of a luminance channel."""
     # The responses are unbounded, and are clipped to the displayable range
-    for label, image in (("transversal_dog", dog), ("fdog_lic", smoothed), ("fdog", thresholded)):
-        plt.imsave(
-            output_dir / f"{name}_{label}.png",
-            image.clamp(0, 1).cpu().numpy(),
-            cmap="gray",
-            vmin=0,
-            vmax=1,
-        )
+    for label, image in zip(("transversal_dog", "fdog_lic", "fdog"), xdog(luminance)):
+        save_gray(image, output_dir / f"{name}_{label}.png")
+
+
+def save_preprocessing_xdog(
+    xyz_y: torch.Tensor,
+    lab_l: torch.Tensor,
+    hsl_l: torch.Tensor,
+    equalized: torch.Tensor,
+    output_dir: Path,
+    name: str,
+) -> None:
+    """
+    Save the final XDoG result, with the same parameters, for other inputs than the XYZ Y
+    channel: Y at half brightness, CIELAB L*, HSL l and Y after histogram equalization.
+    """
+    inputs = (
+        ("xdog_dark", 0.5 * xyz_y),
+        ("xdog_lab", lab_l / 100),
+        ("xdog_hsl", hsl_l),
+        ("contrast_balancing_xdog", equalized),
+    )
+
+    for label, image in inputs:
+        save_gray(xdog(image)[2], output_dir / f"{name}_{label}.png")
 
 
 def save_luminance(channels: tuple, output_dir: Path, name: str) -> None:
@@ -581,8 +632,12 @@ def save_histograms(histograms: tuple, path: Path) -> None:
     save_figure(fig, path)
 
 
-def save_contrast_balancing(luminance: torch.Tensor, output_dir: Path, name: str) -> None:
-    """Save a luminance channel after histogram equalization, and its histograms before and after."""
+def save_contrast_balancing(luminance: torch.Tensor, output_dir: Path, name: str) -> torch.Tensor:
+    """
+    Save a luminance channel after histogram equalization, and its histograms before and after.
+
+    Returns the equalized channel.
+    """
     equalized = kornia_enhance.equalize(luminance.clamp(0, 1).unsqueeze(0)).squeeze(0)
 
     plt.imsave(
@@ -621,6 +676,8 @@ def save_contrast_balancing(luminance: torch.Tensor, output_dir: Path, name: str
     ax.legend(loc="upper center")
 
     save_figure(fig, output_dir / f"{name}_contrast_balancing_histograms.png")
+
+    return equalized
 
 
 def save_spectrum(luminance: torch.Tensor, path: Path) -> None:
@@ -686,6 +743,7 @@ def main():
     # 4. Edge analysis
 
     save_sobel_gradients(xyz[..., 1], output_dir, name)
+    save_structure_tensor(xyz[..., 1], output_dir, name)
     save_eigenvectors(xyz[..., 1], output_dir, name)
     save_flow(xyz[..., 1], output_dir, name)
     save_flow_blur(xyz[..., 1], output_dir, name)
@@ -693,7 +751,10 @@ def main():
 
     # 5. Histogram analysis
 
-    save_contrast_balancing(xyz[..., 1], output_dir, name)
+    equalized = save_contrast_balancing(xyz[..., 1], output_dir, name)
+
+    # How pre-processing changes the XDoG result
+    save_preprocessing_xdog(xyz[..., 1], lab[..., 0], hsl[..., 2], equalized, output_dir, name)
 
     # 6. Frequency analysis
 

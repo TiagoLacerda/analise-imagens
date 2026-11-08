@@ -145,6 +145,23 @@
 \end{frame}
 
 \begin{frame}
+    \frametitle{Por que pré-processar?}
+    \framesubtitle{XDoG com os mesmos parâmetros}
+
+    \begin{columns}[T]
+        \column{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{fdog}}
+        {\small $Y$}
+
+        \column{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{xdog_dark}}
+        {\small $0{,}5\,Y$}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
     \frametitle{Espaços de cores}
 
     \begin{columns}
@@ -173,10 +190,65 @@
 \end{frame}
 
 \begin{frame}
+    \frametitle{Espaços de cores}
+    \framesubtitle{XDoG com os mesmos parâmetros}
+
+    \begin{columns}[T]
+        \column{0.333\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{xdog_lab}}
+        {\small CIELAB L*}
+
+        \column{0.333\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{xdog_hsl}}
+        {\small HSL l}
+
+        \column{0.333\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{fdog}}
+        {\small XYZ Y}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
     \frametitle{Balanceamento de contraste}
-    % TODO: Missing image comparison
+
     \centering
     \includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{\asset{contrast_balancing_histograms}}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Balanceamento de contraste}
+
+    \begin{columns}[T]
+        \column{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{luminance_xyz}}
+        {\small $Y$}
+
+        \column{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{contrast_balancing}}
+        {\small $Y$ equalizado}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Balanceamento de contraste}
+    \framesubtitle{XDoG com os mesmos parâmetros}
+
+    \begin{columns}[T]
+        \column{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{fdog}}
+        {\small $Y$}
+
+        \column{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{contrast_balancing_xdog}}
+        {\small $Y$ equalizado}
+    \end{columns}
 \end{frame}
 
 \begin{frame}
@@ -222,9 +294,30 @@
 
     \begin{equation*}
         S =
-        \begin{bmatrix} G_x * G_x & G_x * G_y \\ G_x * G_x & G_y * G_y \end{bmatrix} =
+        \begin{bmatrix} G_x * G_x & G_x * G_y \\ G_x * G_y & G_y * G_y \end{bmatrix} =
         \begin{bmatrix} E & F \\ F & G \end{bmatrix}
     \end{equation*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{Suavização do tensor de estrutura}
+
+    \begin{columns}[T]
+        \column{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{structure_tensor}}
+        {\small $S$}
+
+        \column{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{structure_tensor_smoothed}}
+        {\small $S_{\sigma_c} = G_{\sigma_c} \otimes S$, \quad $\sigma_c = 2$}
+    \end{columns}
+
+    \vspace{0.5em}
+    \centering
+    {\small Cores: $(\sqrt{E}, \sqrt{G}, \sqrt{|F|})$}
 \end{frame}
 
 \begin{frame}
@@ -232,13 +325,18 @@
     \framesubtitle{Vetor tangente}
 
     \begin{equation*}
-        S =
-        \begin{bmatrix} G_x * G_x & G_x * G_y \\ G_x * G_y & G_y * G_y \end{bmatrix} =
-        \begin{bmatrix} E & F \\ F & G \end{bmatrix}
+        S_{\sigma_c} = G_{\sigma_c} \otimes S =
+        \begin{bmatrix} \bar{E} & \bar{F} \\ \bar{F} & \bar{G} \end{bmatrix}
     \end{equation*}
 
     \begin{equation*}
-        \hat{t} = \begin{pmatrix} \lambda_1 - E \\ -F \end{pmatrix}
+        \lambda_1 = \frac{\bar{E} + \bar{G} + \sqrt{(\bar{E} - \bar{G})^2 + 4\bar{F}^2}}{2}
+    \end{equation*}
+
+    \begin{equation*}
+        t = \begin{pmatrix} \lambda_1 - \bar{E} \\ -\bar{F} \end{pmatrix},
+        \qquad
+        \hat{t} = \frac{t}{\lVert t \rVert}
     \end{equation*}
 \end{frame}
 
