@@ -5,11 +5,11 @@ Usage:
     python3 src/assets.py PATH
 
 Example:
-    python3 src/assets.py assets/images/chicken.jpg
+    python3 src/assets.py latex/assets/images/chicken.jpg
 
-The images are saved to the output/<name>/ folder in the project root, and are
-meant to be displayed over a white background. For an input image
-<name>.<extension>:
+The images are saved to the latex/assets/images/ folder in the project root, where
+the presentation reads them, and are meant to be displayed over a white background.
+For an input image <name>.<extension>:
 
     <name>.<extension>               Input image
     <name>_blurred_2.png             Gaussian blur, sigma = 2
@@ -22,6 +22,23 @@ meant to be displayed over a white background. For an input image
     <name>_eigenvector_major.png     Major structure tensor eigenvector, x in the red channel,
                                      y in the green channel, zero is 0.5
     <name>_eigenvector_minor.png     Minor structure tensor eigenvector, same channels
+    <name>_flow.png                  Minor eigenvectors, the direction of least change, as line
+                                     segments over the XYZ Y channel, with the crop outlined
+    <name>_flow_crop.png             The same segments, denser, over a crop of the image center,
+                                     with the pixel crop outlined
+    <name>_flow_pixels.png           One segment per pixel, over a smaller crop of the image center
+    <name>_transversal_blur.png      XYZ Y channel blurred along a straight line across the edge,
+                                     in the direction of greatest change of each pixel
+    <name>_lic_blur.png              XYZ Y channel blurred along the curve that follows the
+                                     direction of least change (line integral convolution)
+    <name>_transversal_pixels.png    Close-up of the points the transversal blur reads for the
+                                     center pixel, sized by their weight
+    <name>_lic_pixels.png            Close-up of the points the LIC blur reads for the center pixel
+    <name>_transversal_dog.png       Flow-based XDoG, step 1: DoG of the XYZ Y channel across the
+                                     edges, clipped to [0, 1]
+    <name>_fdog_lic.png              Step 2: that response blurred along the edges with LIC,
+                                     clipped to [0, 1]
+    <name>_fdog.png                  Step 3: that response after the soft threshold
     <name>_canny.png                 Canny edges of the XYZ Y channel
     <name>_luminance_lab.png         CIELAB L* channel
     <name>_luminance_hsl.png         HSL l channel
@@ -45,19 +62,36 @@ import kornia.filters as kornia_filters
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 from PIL import Image
 
 from assets_static import style_axes
 from util import apply_filter, rgb_to_hsl, rgb_to_lab, rgb_to_xyz
 
-OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "latex" / "assets" / "images"
 
 BLUR_RADIUS = 9
 BLUR_SIGMAS = (2, 3)
 
 STRUCTURE_TENSOR_SIGMA = 2
 COHERENCE_EPSILON = 1e-3
+
+FLOW_SPACING = 12
+FLOW_CROP_SIZE = 128
+FLOW_CROP_SPACING = 6
+FLOW_PIXELS_SIZE = 24
+
+FLOW_BLUR_SIGMA = 5
+FLOW_BLUR_RADIUS = 15
+
+XDOG_SIGMA = 1.0
+XDOG_K = 1.6
+XDOG_P = 20
+XDOG_SIGMA_M = 3.0
+# Linear Y is mostly below 0.3, so the threshold is lower than the usual 0.5
+XDOG_EPSILON = 0.1
+XDOG_PHI = 50
 
 
 def parse_args() -> str:
@@ -203,6 +237,300 @@ def save_eigenvectors(luminance: torch.Tensor, output_dir: Path, name: str) -> N
         )
 
 
+def plot_flow(
+    luminance: torch.Tensor,
+    flow: torch.Tensor,
+    region: tuple[int, int, int, int],
+    spacing: int,
+    path: Path,
+    outline: tuple[int, int, int, int] | None = None,
+    pixel_grid: bool = False,
+    samples: list[tuple[int, float, float]] | None = None,
+) -> None:
+    """
+    Plot a (2, H, W) direction field as line segments over a region of a luminance channel.
+
+    Regions are (left, top, width, height) tuples. One segment is drawn every spacing
+    pixels, the outline region, if given, is drawn as a rectangle, and pixel_grid draws
+    the pixel borders. Samples, if given, are the (step, x, y) points a blur reads for one
+    pixel, drawn in order with their size given by their gaussian weight.
+    """
+    left, top, width, height = region
+
+    fig, ax = plt.subplots(figsize=(8, 8 * height / width), facecolor="white")
+
+    # Faded so the segments stand out
+    ax.imshow(
+        luminance[top:top + height, left:left + width].cpu().numpy(),
+        cmap="gray",
+        vmin=0,
+        vmax=1,
+        alpha=0.5,
+    )
+
+    ys, xs = np.mgrid[spacing // 2:height:spacing, spacing // 2:width:spacing]
+    u, v = flow[:, top + ys, left + xs].cpu().numpy()
+
+    # Isotropic regions have no direction to draw
+    drawn = (u != 0) | (v != 0)
+
+    # The sign of an eigenvector is arbitrary, so segments have no arrowheads and are
+    # centered on their pixel. Data coordinates keep the y axis pointing down, like the image
+    ax.quiver(
+        xs[drawn],
+        ys[drawn],
+        u[drawn],
+        v[drawn],
+        color="red",
+        angles="xy",
+        scale_units="xy",
+        scale=1 / (0.8 * spacing),
+        pivot="middle",
+        width=0.003,
+        headwidth=0,
+        headlength=0,
+        headaxislength=0,
+    )
+
+    if outline is not None:
+        outline_left, outline_top, outline_width, outline_height = outline
+        ax.add_patch(plt.Rectangle(
+            (outline_left - left - 0.5, outline_top - top - 0.5),
+            outline_width,
+            outline_height,
+            fill=False,
+            edgecolor="blue",
+            linewidth=1.5,
+        ))
+
+    if pixel_grid:
+        borders = np.arange(-0.5, max(width, height))
+        ax.vlines(borders[:width + 1], -0.5, height - 0.5, color="white", linewidth=0.5)
+        ax.hlines(borders[:height + 1], -0.5, width - 0.5, color="white", linewidth=0.5)
+
+    if samples is not None:
+        steps, xs, ys = (np.array(values) for values in zip(*samples))
+        xs, ys = xs - left, ys - top
+
+        ax.plot(xs, ys, color="blue", linewidth=1)
+        ax.scatter(xs, ys, s=80 * gaussian_weight(steps), color="blue", zorder=3)
+
+        # The pixel being blurred
+        center = steps == 0
+        ax.add_patch(plt.Rectangle(
+            (xs[center][0] - 0.5, ys[center][0] - 0.5),
+            1,
+            1,
+            fill=False,
+            edgecolor="blue",
+            linewidth=2,
+        ))
+
+    ax.set_xlim(-0.5, width - 0.5)
+    ax.set_ylim(height - 0.5, -0.5)
+    ax.axis("off")
+
+    save_figure(fig, path)
+
+
+def centered(size: int, height: int, width: int) -> tuple[int, int, int, int]:
+    """Returns the (left, top, width, height) square region of the given size at the center of an image."""
+    size = min(size, height, width)
+
+    return (width - size) // 2, (height - size) // 2, size, size
+
+
+def save_flow(luminance: torch.Tensor, output_dir: Path, name: str) -> None:
+    """Save the minor eigenvectors, the direction of least change, over the whole image and two centered crops."""
+    _, v2 = eigenvectors(*structure_tensor(luminance))
+
+    height, width = luminance.shape
+    crop = centered(FLOW_CROP_SIZE, height, width)
+    pixels = centered(FLOW_PIXELS_SIZE, height, width)
+
+    plot_flow(luminance, v2, (0, 0, width, height), FLOW_SPACING, output_dir / f"{name}_flow.png", outline=crop)
+    plot_flow(luminance, v2, crop, FLOW_CROP_SPACING, output_dir / f"{name}_flow_crop.png", outline=pixels)
+    plot_flow(luminance, v2, pixels, 1, output_dir / f"{name}_flow_pixels.png", pixel_grid=True)
+
+
+def sample(tensor: torch.Tensor, xs: torch.Tensor, ys: torch.Tensor, mode: str) -> torch.Tensor:
+    """Returns a (C, H, W) tensor sampled at the (H, W) pixel coordinates xs and ys, clamped to the border."""
+    _, height, width = tensor.shape
+    grid = torch.stack((2 * xs / (width - 1) - 1, 2 * ys / (height - 1) - 1), dim=-1)
+
+    sampled = F.grid_sample(
+        tensor.unsqueeze(0),
+        grid.unsqueeze(0),
+        mode=mode,
+        padding_mode="border",
+        align_corners=True,
+    )
+
+    return sampled.squeeze(0)
+
+
+def gaussian_weight(step: int | np.ndarray, sigma: float = FLOW_BLUR_SIGMA) -> float | np.ndarray:
+    """Returns the unnormalized 1D gaussian weight at a distance of step pixels."""
+    return np.exp(-step ** 2 / (2 * sigma ** 2))
+
+
+def pixel_coordinates(luminance: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """Returns the (H, W) x and y coordinates of every pixel of a luminance channel."""
+    height, width = luminance.shape
+    ys, xs = torch.meshgrid(
+        torch.arange(height, dtype=luminance.dtype, device=luminance.device),
+        torch.arange(width, dtype=luminance.dtype, device=luminance.device),
+        indexing="ij",
+    )
+
+    return xs, ys
+
+
+def line_path(
+    flow: torch.Tensor,
+    xs: torch.Tensor,
+    ys: torch.Tensor,
+    radius: int = FLOW_BLUR_RADIUS,
+) -> list[tuple[int, torch.Tensor, torch.Tensor]]:
+    """
+    Returns the (step, x, y) points along a straight line in the flow direction of each start point.
+
+    The points are ordered from step -radius to radius, and xs and ys can have any (H, W) shape.
+    """
+    tx, ty = sample(flow, xs, ys, "nearest")
+
+    return [(step, xs + step * tx, ys + step * ty) for step in range(-radius, radius + 1)]
+
+
+def lic_path(
+    flow: torch.Tensor,
+    xs: torch.Tensor,
+    ys: torch.Tensor,
+    radius: int = FLOW_BLUR_RADIUS,
+) -> list[tuple[int, torch.Tensor, torch.Tensor]]:
+    """
+    Returns the (step, x, y) points along the curve that follows the flow from each start point.
+
+    The points are ordered from step -radius to radius, and xs and ys can have any (H, W) shape.
+    """
+    halves = []
+
+    # Walk the curve forwards and backwards from each start point
+    for direction in (1, -1):
+        x, y = xs, ys
+        tx, ty = sample(flow, x, y, "nearest")
+        dx, dy = direction * tx, direction * ty
+        half = []
+
+        for step in range(1, radius + 1):
+            x, y = x + dx, y + dy
+            half.append((direction * step, x, y))
+
+            # Interpolating v and -v would cancel out, so the flow is read from the nearest
+            # pixel. Its sign is arbitrary, so it is flipped to keep walking the same way
+            tx, ty = sample(flow, x, y, "nearest")
+            sign = torch.where(tx * dx + ty * dy < 0, -1.0, 1.0)
+            dx, dy = sign * tx, sign * ty
+
+        halves.append(half)
+
+    forwards, backwards = halves
+
+    return backwards[::-1] + [(0, xs, ys)] + forwards
+
+
+def path_blur(
+    luminance: torch.Tensor,
+    path: list[tuple[int, torch.Tensor, torch.Tensor]],
+    sigma: float = FLOW_BLUR_SIGMA,
+) -> torch.Tensor:
+    """Returns a luminance channel blurred with a 1D gaussian over the points of a path."""
+    total = torch.zeros_like(luminance)
+    weights = 0.0
+
+    for step, x, y in path:
+        weight = gaussian_weight(step, sigma)
+        total += weight * sample(luminance.unsqueeze(0), x, y, "bilinear")[0]
+        weights += weight
+
+    return total / weights
+
+
+def save_flow_blur(luminance: torch.Tensor, output_dir: Path, name: str) -> None:
+    """
+    Save a luminance channel blurred across the edges, along a straight line, and along them,
+    following the curve. Also save a close-up of the points each blur reads for the center pixel.
+    """
+    v1, v2 = eigenvectors(*structure_tensor(luminance))
+
+    height, width = luminance.shape
+    xs, ys = pixel_coordinates(luminance)
+
+    # Large enough to hold every point read for the center pixel
+    pixels = centered(2 * FLOW_BLUR_RADIUS + 6, height, width)
+    center_x = torch.full((1, 1), float(width // 2), dtype=luminance.dtype, device=luminance.device)
+    center_y = torch.full((1, 1), float(height // 2), dtype=luminance.dtype, device=luminance.device)
+
+    for label, walk, flow in (("transversal", line_path, v1), ("lic", lic_path, v2)):
+        plt.imsave(
+            output_dir / f"{name}_{label}_blur.png",
+            path_blur(luminance, walk(flow, xs, ys)).cpu().numpy(),
+            cmap="gray",
+            vmin=0,
+            vmax=1,
+        )
+
+        samples = [(step, x.item(), y.item()) for step, x, y in walk(flow, center_x, center_y)]
+
+        # The segments always show the direction of least change, which the transversal
+        # blur crosses and the LIC blur follows
+        plot_flow(
+            luminance,
+            v2,
+            pixels,
+            1,
+            output_dir / f"{name}_{label}_pixels.png",
+            pixel_grid=True,
+            samples=samples,
+        )
+
+
+def save_fdog(luminance: torch.Tensor, output_dir: Path, name: str) -> None:
+    """
+    Save the steps of the flow-based XDoG of a luminance channel: the DoG across the edges,
+    that response blurred along the edges, and the thresholded result.
+    """
+    v1, v2 = eigenvectors(*structure_tensor(luminance))
+    xs, ys = pixel_coordinates(luminance)
+
+    # 1. Across the edges: both gaussians read the same straight line, long enough for the wider one
+    across = line_path(v1, xs, ys, int(np.ceil(3 * XDOG_K * XDOG_SIGMA)))
+    narrow = path_blur(luminance, across, XDOG_SIGMA)
+    wide = path_blur(luminance, across, XDOG_K * XDOG_SIGMA)
+    dog = (1 + XDOG_P) * narrow - XDOG_P * wide
+
+    # 2. Along the edges: joins the response into lines and removes noise
+    along = lic_path(v2, xs, ys, int(np.ceil(3 * XDOG_SIGMA_M)))
+    smoothed = path_blur(dog, along, XDOG_SIGMA_M)
+
+    # 3. Soft threshold: white above epsilon, falling smoothly to black below it
+    thresholded = torch.where(
+        smoothed >= XDOG_EPSILON,
+        torch.ones_like(smoothed),
+        1 + torch.tanh(XDOG_PHI * (smoothed - XDOG_EPSILON)),
+    )
+
+    # The responses are unbounded, and are clipped to the displayable range
+    for label, image in (("transversal_dog", dog), ("fdog_lic", smoothed), ("fdog", thresholded)):
+        plt.imsave(
+            output_dir / f"{name}_{label}.png",
+            image.clamp(0, 1).cpu().numpy(),
+            cmap="gray",
+            vmin=0,
+            vmax=1,
+        )
+
+
 def save_luminance(channels: tuple, output_dir: Path, name: str) -> None:
     """Save each luminance channel as a grayscale image."""
     for space, _, channel, lo, hi in channels:
@@ -306,7 +634,7 @@ def save_spectrum(luminance: torch.Tensor, path: Path) -> None:
 def main():
     path = parse_args()
     name = Path(path).stem
-    output_dir = OUTPUT_DIR / name
+    output_dir = OUTPUT_DIR
 
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
@@ -317,7 +645,10 @@ def main():
 
     # 1. Source image
 
-    shutil.copy(path, output_dir / Path(path).name)
+    # The input image may already be in the output folder
+    source = output_dir / Path(path).name
+    if Path(path).resolve() != source.resolve():
+        shutil.copy(path, source)
 
     colors = ("Red", "Green", "Blue")
 
@@ -356,6 +687,9 @@ def main():
 
     save_sobel_gradients(xyz[..., 1], output_dir, name)
     save_eigenvectors(xyz[..., 1], output_dir, name)
+    save_flow(xyz[..., 1], output_dir, name)
+    save_flow_blur(xyz[..., 1], output_dir, name)
+    save_fdog(xyz[..., 1], output_dir, name)
 
     # 5. Histogram analysis
 

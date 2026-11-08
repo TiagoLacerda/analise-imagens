@@ -8,10 +8,11 @@ A difference-of-gaussians pipeline pre-processing script.
 py src/assets.py [filename with extension]
 ```
 
-The images used in the presentation are saved to `output/[filename]/`.
+The images used in the presentation are saved to `latex/assets/images/`, where
+the presentation reads them.
 
 Save the images that do not depend on an input image, such as the Gaussian
-curves, to `output/static/`:
+curves, to the same folder:
 
 ```sh
 python3 src/assets_static.py

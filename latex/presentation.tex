@@ -1,6 +1,16 @@
 \documentclass{beamer}
 
 \usepackage[portuguese]{babel}
+\usepackage{csquotes}
+
+% References
+\usepackage[backend=biber,style=numeric,isbn=false,url=false,defernumbers=true]{biblatex}
+\addbibresource{references.bib}
+\ExecuteBibliographyOptions[online]{url=true}
+\setbeamertemplate{bibliography item}{\insertbiblabel}
+\renewcommand*{\bibfont}{\footnotesize}
+\defbibheading{group}[]{{\usebeamercolor[fg]{structure}\textbf{#1}}\par\smallskip}
+\setbeamertemplate{frametitle continuation}{}
 
 % Theme
 \usefonttheme{serif}
@@ -178,6 +188,7 @@
 
 \begin{frame}
     \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{Imagem de entrada}
 
     \centering
     \includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{\assetsource}
@@ -185,6 +196,7 @@
 
 \begin{frame}
     \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{Gradientes de Sobel}
 
     \begin{columns}
         \column{0.333\textwidth}
@@ -200,12 +212,13 @@
         \column{0.333\textwidth}
         \centering
         \includegraphics[width=\linewidth]{\asset{sobel_xy}}
-        $(G_x, G_y, 0)$
+        $(|G_x|, |G_y|, 0)$
     \end{columns}
 \end{frame}
 
 \begin{frame}
     \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{Tensor de estrutura}
 
     \begin{equation*}
         S =
@@ -216,17 +229,147 @@
 
 \begin{frame}
     \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{Vetor tangente}
+
+    \begin{equation*}
+        S =
+        \begin{bmatrix} G_x * G_x & G_x * G_y \\ G_x * G_y & G_y * G_y \end{bmatrix} =
+        \begin{bmatrix} E & F \\ F & G \end{bmatrix}
+    \end{equation*}
+
+    \begin{equation*}
+        \hat{t} = \begin{pmatrix} \lambda_1 - E \\ -F \end{pmatrix}
+    \end{equation*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{Campo de fluxo}
 
     \begin{columns}
-        \column{0.5\textwidth}
+        \column{0.7\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{\asset{eigenvector_major}}
-        
-        \column{0.5\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{\asset{eigenvector_minor}}
+        \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{\asset{flow}}
+        {\small Direção de menor variação $\hat{t}$, um segmento a cada 12 pixels}
     \end{columns}
 \end{frame}
 
+\begin{frame}
+    \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{Campo de fluxo}
+
+    \begin{columns}
+        \column{0.7\textwidth}
+        \centering
+        \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{\asset{flow_crop}}
+        {\small Recorte central de 128 pixels, um segmento a cada 6 pixels}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{Campo de fluxo}
+
+    \begin{columns}
+        \column{0.7\textwidth}
+        \centering
+        \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{\asset{flow_pixels}}
+        {\small Recorte central de 24 pixels, um segmento por pixel}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{\textit{Blur} transversal}
+
+    \begin{columns}[T]
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{transversal_pixels}}
+        {\small Amostras em linha reta, cruzando $\hat{t}$; tamanho é o peso}
+
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{transversal_blur}}
+        {\small Resultado, $\sigma = 5$}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{\textit{Blur} ao longo do fluxo (LIC)}
+
+    \begin{columns}[T]
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{lic_pixels}}
+        {\small Amostras ao longo da curva que segue $\hat{t}$; tamanho é o peso}
+
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{lic_blur}}
+        {\small Resultado, $\sigma = 5$}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{DoG transversal}
+
+    \begin{columns}[T]
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{transversal_blur}}
+        {\small \textit{Blur} transversal}
+
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{transversal_dog}}
+        {\small $D = (1 + p)\,G_{\sigma} - p\,G_{k\sigma}$ \\ $\sigma = 1$, $k = 1{,}6$, $p = 20$}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{Suavização ao longo do fluxo}
+
+    \begin{columns}[T]
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{transversal_dog}}
+        {\small DoG transversal $D$}
+
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{fdog_lic}}
+        {\small $L(\mathbf{x}) = \sum_{s} G_{\sigma_m}(s)\,D(c_{\mathbf{x}}(s))$ \\ $\sigma_m = 3$}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Diferença das Gaussianas Baseada em Fluxo}
+    \framesubtitle{Limiarização}
+
+    \begin{columns}[T]
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{fdog_lic}}
+        {\small Resposta suavizada $L$}
+
+        \column{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{\asset{fdog}}
+        {\small $T = \min\left(1,\ 1 + \tanh(\varphi\,(L - \varepsilon))\right)$ \\ $\varepsilon = 0{,}1$, $\varphi = 50$}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[allowframebreaks]
+    \frametitle{Referências}
+
+    \nocite{*}
+    \printbibliography[type=article, heading=group, title={Artigos}]
+    \medskip
+    \printbibliography[type=online, heading=group, title={Links}]
+\end{frame}
 
 \end{document}

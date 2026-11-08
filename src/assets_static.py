@@ -4,7 +4,8 @@ Save the images used in the presentation that do not depend on an input image.
 Usage:
     python3 src/assets_static.py
 
-The images are saved to the output/static/ folder in the project root:
+The images are saved to the latex/assets/images/ folder in the project root, where
+the presentation reads them:
 
     gaussian_2.png    Gaussian curve, sigma = 2
     gaussian_3.png    Gaussian curve, sigma = 3
@@ -17,7 +18,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output" / "static"
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "latex" / "assets" / "images"
 
 SIGMA_COLORS = {2: "red", 3: "blue"}
 
